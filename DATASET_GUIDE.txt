@@ -1,0 +1,113 @@
+## HOW TO INTEGRATE A HUGE MEDICINE DATASET
+## ==========================================
+## Follow these steps to add 10,000+ medicines
+
+## STEP 1 — Download Dataset from Kaggle
+## ----------------------------------------
+## 1. Go to https://www.kaggle.com/datasets
+## 2. Search: "Indian Medicine Dataset" or "Drug Directory"
+## 3. Best datasets to use:
+##    - "Medicine Recommendation System Dataset" (~11k rows)
+##    - "Indian Drugs Dataset" (brands, compositions, side effects)
+##    - "Medicine Details Dataset" (has uses, side effects, manufacturer)
+##    Download as CSV
+
+## STEP 2 — Add columns to your database (run in phpMyAdmin SQL tab)
+## -------------------------------------------------------------------
+ALTER TABLE products
+  ADD COLUMN IF NOT EXISTS uses TEXT,
+  ADD COLUMN IF NOT EXISTS side_effects TEXT,
+  ADD COLUMN IF NOT EXISTS dosage VARCHAR(500),
+  ADD COLUMN IF NOT EXISTS warnings TEXT,
+  ADD COLUMN IF NOT EXISTS composition VARCHAR(400),
+  ADD COLUMN IF NOT EXISTS storage VARCHAR(200),
+  ADD COLUMN IF NOT EXISTS manufacturer VARCHAR(200),
+  ADD COLUMN IF NOT EXISTS pack_size VARCHAR(100),
+  ADD COLUMN IF NOT EXISTS medicine_type VARCHAR(50);
+
+## STEP 3 — Python script to import CSV into MySQL
+## -------------------------------------------------
+## Create a file: import_medicines.py
+## Run: python import_medicines.py
+
+"""
+import pandas as pd
+import mysql.connector
+
+# Connect to DB
+conn = mysql.connector.connect(
+    host='localhost', user='root', password='', database='onemg_db'
+)
+cursor = conn.cursor()
+
+# Load your downloaded CSV (rename columns as needed)
+df = pd.read_csv('medicine_dataset.csv')
+
+# Typical Kaggle column names - adjust to match your CSV:
+# 'Drug_Name', 'Manufacturer', 'Composition', 'Uses', 'Side_effects',
+# 'Excellent Review %', 'Average Review %', 'Poor Review %'
+
+for _, row in df.iterrows():
+    name = str(row.get('Drug_Name', '')).strip()[:200]
+    brand = str(row.get('Manufacturer', '')).strip()[:100]
+    composition = str(row.get('Composition', '')).strip()[:400]
+    uses = str(row.get('Uses', '')).strip()
+    side_effects = str(row.get('Side_effects', '')).strip()
+    
+    if not name or name == 'nan':
+        continue
+    
+    # Map to category based on composition keywords
+    cat_id = 5  # default: pain relief
+    comp_lower = composition.lower()
+    if any(k in comp_lower for k in ['vitamin', 'calcium', 'zinc', 'iron', 'omega']):
+        cat_id = 1
+    elif any(k in comp_lower for k in ['metformin', 'insulin', 'glipizide', 'glucos']):
+        cat_id = 2
+    elif any(k in comp_lower for k in ['cream', 'niacinamide', 'retinol', 'clindamycin', 'sunscreen']):
+        cat_id = 3
+    elif any(k in comp_lower for k in ['paracetamol', 'phenylephrine', 'cetirizine']):
+        cat_id = 4
+    elif any(k in comp_lower for k in ['ibuprofen', 'diclofenac', 'tramadol']):
+        cat_id = 5
+    elif any(k in comp_lower for k in ['amlodipine', 'atenolol', 'atorvastatin', 'aspirin']):
+        cat_id = 6
+    elif any(k in comp_lower for k in ['amoxicillin', 'azithromycin', 'ciprofloxacin']):
+        cat_id = 7
+    elif any(k in comp_lower for k in ['omeprazole', 'pantoprazole', 'domperidone']):
+        cat_id = 8
+    
+    import random
+    price = round(random.uniform(20, 800), 2)
+    stock = random.randint(10, 200)
+    rx = 1 if any(k in composition.lower() for k in ['tramadol', 'insulin', 'alprazolam', 'clonazepam']) else 0
+    
+    sql = \"""INSERT INTO products 
+             (name, brand, category_id, price, stock_qty, requires_prescription,
+              composition, uses, side_effects, description) 
+             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+             ON DUPLICATE KEY UPDATE composition=%s, uses=%s\"""
+    
+    vals = (name, brand, cat_id, price, stock, rx,
+            composition, uses[:500], side_effects[:500],
+            uses[:200], composition, uses[:500])
+    
+    try:
+        cursor.execute(sql, vals)
+    except Exception as e:
+        print(f'Skipped: {name} — {e}')
+
+conn.commit()
+cursor.close()
+conn.close()
+print('Import complete!')
+"""
+
+## STEP 4 — Install Python dependencies
+## pip install pandas mysql-connector-python
+
+## STEP 5 — Run: python import_medicines.py
+## Your database will now have 10,000+ medicines!
+
+## STEP 6 — Add new Flask routes to app.py (already handled in the main app.py)
+## The /products endpoint already returns all fields including uses, side_effects etc.
