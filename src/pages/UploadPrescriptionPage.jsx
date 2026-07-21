@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@clerk/clerk-react';
-import { db, storage } from '../firebase';
-import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import { collection, addDoc, query, where, onSnapshot, orderBy } from 'firebase/firestore';
+import { db } from '../firebase';
+import { collection, addDoc, query, where, onSnapshot } from 'firebase/firestore';
 import { useStore } from '../context/StoreContext';
 
 export default function UploadPrescriptionPage() {
@@ -56,29 +55,36 @@ export default function UploadPrescriptionPage() {
       return;
     }
 
+    const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
+    const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
+
+    if (!cloudName || !uploadPreset) {
+      showToast('Cloudinary environment variables missing!', 'error');
+      return;
+    }
+
     setIsUploading(true);
     setUploadProgress(0);
 
-    const fileExt = selectedFile.name.split('.').pop();
-    const uniqueFileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
-    const storageRef = ref(storage, `prescriptions/${userId}/${uniqueFileName}`);
+    const formData = new FormData();
+    formData.append('file', selectedFile);
+    formData.append('upload_preset', uploadPreset);
+    formData.append('folder', `prescriptions/${userId}`); // Organize uploads by user
 
-    const uploadTask = uploadBytesResumable(storageRef, selectedFile);
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`);
 
-    uploadTask.on(
-      'state_changed',
-      (snapshot) => {
-        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) {
+        const progress = (event.loaded / event.total) * 100;
         setUploadProgress(progress);
-      },
-      (error) => {
-        console.error('Upload failed:', error);
-        showToast('Upload failed. Try again later.', 'error');
-        setIsUploading(false);
-      },
-      async () => {
-        // Upload complete
-        const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+      }
+    };
+
+    xhr.onload = async () => {
+      if (xhr.status === 200) {
+        const response = JSON.parse(xhr.responseText);
+        const downloadURL = response.secure_url;
         
         // Save metadata to Firestore
         await addDoc(collection(db, 'prescriptions'), {
@@ -95,8 +101,20 @@ export default function UploadPrescriptionPage() {
         setSelectedFile(null);
         setNotes('');
         showToast('Prescription uploaded successfully!');
+      } else {
+        console.error('Upload failed:', xhr.responseText);
+        showToast('Upload failed. Try again later.', 'error');
+        setIsUploading(false);
       }
-    );
+    };
+
+    xhr.onerror = () => {
+      console.error('Upload failed due to network error.');
+      showToast('Upload failed. Network error.', 'error');
+      setIsUploading(false);
+    };
+
+    xhr.send(formData);
   };
 
   return (
