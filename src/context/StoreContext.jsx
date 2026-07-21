@@ -63,10 +63,10 @@ export function StoreProvider({ children }) {
   }, [userId, isLoaded]);
 
   const syncCart = async (newCart) => {
+    setCart(newCart); // Optimistic UI update
     if (userId) {
       await setDoc(doc(db, 'carts', userId), { items: newCart });
     } else {
-      setCart(newCart);
       localStorage.setItem('cn_cart', JSON.stringify(newCart));
     }
   };
