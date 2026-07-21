@@ -1,9 +1,22 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '@clerk/clerk-react';
 import { useStore } from '../context/StoreContext';
 
 export default function OrdersPage() {
+  const { isLoaded, isSignedIn } = useAuth();
+  const navigate = useNavigate();
   const { orders } = useStore();
+
+  useEffect(() => {
+    if (isLoaded && !isSignedIn) {
+      navigate('/login');
+    }
+  }, [isLoaded, isSignedIn, navigate]);
+
+  if (!isLoaded || !isSignedIn) {
+    return <div style={{ padding: '100px', textAlign: 'center' }}>Loading...</div>;
+  }
 
   const sc = { pending: 'sp-p', confirmed: 'sp-c', delivered: 'sp-d' };
   const si = { pending: '⏳', confirmed: '✅', delivered: '🚚' };

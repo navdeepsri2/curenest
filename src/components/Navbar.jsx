@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { SignedIn, SignedOut, UserButton } from '@clerk/clerk-react';
 import { useStore } from '../context/StoreContext';
 import { PRODUCTS } from '../data/mockData';
 
 export default function Navbar() {
-  const { totalCartItems, user, logoutUser } = useStore();
+  const { totalCartItems } = useStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const navigate = useNavigate();
@@ -123,15 +124,14 @@ export default function Navbar() {
             Cart <span className="c-dot" id="cartCount">{totalCartItems}</span>
           </Link>
 
-          {user ? (
-            <div className="u-chip">
-              <div className="u-av">{user.name.charAt(0)}</div>
-              <span>{user.name}</span>
-              <button onClick={logoutUser} className="u-x" title="Logout">✕</button>
+          <SignedIn>
+            <div style={{ padding: '0 8px' }}>
+              <UserButton />
             </div>
-          ) : (
+          </SignedIn>
+          <SignedOut>
             <Link to="/login" className="n-login">Login</Link>
-          )}
+          </SignedOut>
         </div>
       </nav>
     </>

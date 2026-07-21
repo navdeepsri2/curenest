@@ -1,14 +1,23 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { useAuth, useUser } from '@clerk/clerk-react';
 import { useStore } from '../context/StoreContext';
 import RazorpayMock from '../components/RazorpayMock';
 
 export default function CheckoutPage() {
-  const { cart, cartSubtotal, placeOrder, user } = useStore();
+  const { cart, cartSubtotal, placeOrder } = useStore();
   const navigate = useNavigate();
+  const { isLoaded, isSignedIn } = useAuth();
+  const { user } = useUser();
+
+  useEffect(() => {
+    if (isLoaded && !isSignedIn) {
+      navigate('/login');
+    }
+  }, [isLoaded, isSignedIn, navigate]);
 
   const [formData, setFormData] = useState({
-    fn: user ? user.name : '',
+    fn: user ? user.fullName || user.primaryEmailAddress?.emailAddress : '',
     ph: '',
     a1: '',
     a2: '',
@@ -16,6 +25,16 @@ export default function CheckoutPage() {
     pn: '110001',
     pay: 'cod',
   });
+
+  useEffect(() => {
+    if (user && !formData.fn) {
+      setFormData(prev => ({ ...prev, fn: user.fullName || user.primaryEmailAddress?.emailAddress || '' }));
+    }
+  }, [user]);
+
+  if (!isLoaded || !isSignedIn) {
+    return <div style={{ padding: '100px', textAlign: 'center' }}>Loading...</div>;
+  }
 
   const [isPlaced, setIsPlaced] = useState(false);
   const [placedOrderId, setPlacedOrderId] = useState('');
