@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth, useUser } from '@clerk/clerk-react';
 import { useStore } from '../context/StoreContext';
-import RazorpayMock from '../components/RazorpayMock';
 
 export default function CheckoutPage() {
   const { cart, cartSubtotal, placeOrder } = useStore();
@@ -38,7 +37,6 @@ export default function CheckoutPage() {
 
   const [isPlaced, setIsPlaced] = useState(false);
   const [placedOrderId, setPlacedOrderId] = useState('');
-  const [showRazorpay, setShowRazorpay] = useState(false);
 
   const deliveryFee = cartSubtotal >= 299 || cartSubtotal === 0 ? 0 : 50;
   const grandTotal = cartSubtotal + deliveryFee;
@@ -53,7 +51,31 @@ export default function CheckoutPage() {
     if (formData.pay === 'cod') {
       finalizeOrder('cod', null);
     } else {
-      setShowRazorpay(true);
+      const options = {
+        key: import.meta.env.VITE_RAZORPAY_KEY_ID, // Use the test key from .env
+        amount: grandTotal * 100, // Amount is in paise
+        currency: 'INR',
+        name: 'CureNest',
+        description: 'Pharmacy Order',
+        image: 'https://cdn-icons-png.flaticon.com/512/883/883407.png', // Optional logo
+        handler: function (response) {
+          finalizeOrder(formData.pay, response.razorpay_payment_id);
+        },
+        prefill: {
+          name: formData.fn,
+          email: user?.primaryEmailAddress?.emailAddress || '',
+          contact: formData.ph,
+        },
+        theme: {
+          color: '#0a5c44',
+        },
+      };
+
+      const rzp = new window.Razorpay(options);
+      rzp.on('payment.failed', function (response) {
+        alert('Payment failed: ' + response.error.description);
+      });
+      rzp.open();
     }
   };
 
@@ -249,18 +271,6 @@ export default function CheckoutPage() {
         </div>
       )}
 
-      {/* Razorpay Mock UI */}
-      {showRazorpay && (
-        <RazorpayMock 
-          amount={grandTotal} 
-          contact={formData.ph} 
-          onSuccess={(res) => {
-            setShowRazorpay(false);
-            finalizeOrder(formData.pay, res.razorpay_payment_id);
-          }} 
-          onClose={() => setShowRazorpay(false)} 
-        />
-      )}
     </div>
   );
 }
