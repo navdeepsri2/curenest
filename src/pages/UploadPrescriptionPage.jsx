@@ -1,37 +1,102 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '@clerk/clerk-react';
+import { db, storage } from '../firebase';
+import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import { collection, addDoc, query, where, onSnapshot, orderBy } from 'firebase/firestore';
 import { useStore } from '../context/StoreContext';
 
 export default function UploadPrescriptionPage() {
-  const { user } = useStore();
+  const { userId, isLoaded } = useAuth();
+  const { showToast } = useStore();
   const navigate = useNavigate();
 
   const [selectedFile, setSelectedFile] = useState(null);
   const [notes, setNotes] = useState('');
-  const [isUploaded, setIsUploaded] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadedList, setUploadedList] = useState([]);
+
+  // Fetch prescription history
+  useEffect(() => {
+    if (!isLoaded) return;
+    if (userId) {
+      const q = query(collection(db, 'prescriptions'), where('userId', '==', userId));
+      const unsub = onSnapshot(q, (querySnapshot) => {
+        const fetchedDocs = [];
+        querySnapshot.forEach((doc) => {
+          fetchedDocs.push({ id: doc.id, ...doc.data() });
+        });
+        // Sort descending
+        fetchedDocs.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        setUploadedList(fetchedDocs);
+      });
+      return () => unsub();
+    }
+  }, [userId, isLoaded]);
 
   const handleFileChange = (e) => {
     if (e.target.files && e.target.files[0]) {
+      // Validate file size (max 5MB)
+      if (e.target.files[0].size > 5 * 1024 * 1024) {
+        showToast('File too large. Max size is 5MB', 'error');
+        return;
+      }
       setSelectedFile(e.target.files[0]);
     }
   };
 
-  const handleUpload = (e) => {
+  const handleUpload = async (e) => {
     e.preventDefault();
     if (!selectedFile) return;
 
-    const newDoc = {
-      filename: selectedFile.name,
-      uploadedAt: new Date().toLocaleDateString('en-IN'),
-      status: 'Pending',
-      notes: notes,
-    };
+    if (!userId) {
+      showToast('You must be logged in to upload prescriptions', 'error');
+      navigate('/login');
+      return;
+    }
 
-    setUploadedList([newDoc, ...uploadedList]);
-    setIsUploaded(true);
-    setSelectedFile(null);
-    setNotes('');
+    setIsUploading(true);
+    setUploadProgress(0);
+
+    const fileExt = selectedFile.name.split('.').pop();
+    const uniqueFileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+    const storageRef = ref(storage, `prescriptions/${userId}/${uniqueFileName}`);
+
+    const uploadTask = uploadBytesResumable(storageRef, selectedFile);
+
+    uploadTask.on(
+      'state_changed',
+      (snapshot) => {
+        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+        setUploadProgress(progress);
+      },
+      (error) => {
+        console.error('Upload failed:', error);
+        showToast('Upload failed. Try again later.', 'error');
+        setIsUploading(false);
+      },
+      async () => {
+        // Upload complete
+        const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+        
+        // Save metadata to Firestore
+        await addDoc(collection(db, 'prescriptions'), {
+          userId: userId,
+          filename: selectedFile.name,
+          downloadURL: downloadURL,
+          notes: notes,
+          status: 'Pending Verification',
+          createdAt: new Date().toISOString(),
+          uploadedAt: new Date().toLocaleDateString('en-IN')
+        });
+
+        setIsUploading(false);
+        setSelectedFile(null);
+        setNotes('');
+        showToast('Prescription uploaded successfully!');
+      }
+    );
   };
 
   return (
@@ -70,12 +135,14 @@ export default function UploadPrescriptionPage() {
         <div
           className="up-zone"
           onClick={() => document.getElementById('fileInput').click()}
+          style={{ cursor: isUploading ? 'not-allowed' : 'pointer', opacity: isUploading ? 0.6 : 1 }}
         >
           <input
             type="file"
             id="fileInput"
             accept="image/*,.pdf"
             onChange={handleFileChange}
+            disabled={isUploading}
           />
           <div style={{ fontSize: '52px', marginBottom: '12px' }}>📤</div>
           <h3>Click or drag & drop prescription</h3>
@@ -92,6 +159,7 @@ export default function UploadPrescriptionPage() {
                 e.stopPropagation();
                 setSelectedFile(null);
               }}
+              disabled={isUploading}
               style={{ background: 'none', border: 'none', color: 'var(--coral)', cursor: 'pointer', fontSize: '16px', fontWeight: 700 }}
             >
               ✕
@@ -106,6 +174,7 @@ export default function UploadPrescriptionPage() {
               placeholder="Notes for pharmacist (preferred brands, allergies...)"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
+              disabled={isUploading}
               rows="3"
               style={{
                 width: '100%',
@@ -117,25 +186,39 @@ export default function UploadPrescriptionPage() {
                 outline: 'none',
               }}
             ></textarea>
-            <button type="submit" className="btn-g" style={{ marginTop: '10px' }}>
-              Upload Prescription
+            
+            {isUploading && (
+              <div style={{ width: '100%', backgroundColor: '#eee', borderRadius: '8px', overflow: 'hidden', marginTop: '12px' }}>
+                <div style={{ height: '8px', backgroundColor: 'var(--primary)', width: `${uploadProgress}%`, transition: 'width 0.3s' }}></div>
+              </div>
+            )}
+            
+            <button type="submit" className="btn-g" disabled={isUploading} style={{ marginTop: '10px', opacity: isUploading ? 0.7 : 1 }}>
+              {isUploading ? `Uploading... ${Math.round(uploadProgress)}%` : 'Upload Prescription'}
             </button>
           </form>
         )}
 
         {/* Uploaded History List */}
-        {(isUploaded || uploadedList.length > 0) && (
+        {uploadedList.length > 0 && (
           <div style={{ marginTop: '26px', background: 'white', borderRadius: 'var(--r)', padding: '20px', boxShadow: 'var(--shadow)', border: '1px solid var(--border)' }}>
             <h3 style={{ fontSize: '15px', fontWeight: 700, marginBottom: '14px' }}>Your Uploaded Prescriptions</h3>
-            {uploadedList.map((doc, idx) => (
-              <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '11px', padding: '11px 0', borderBottom: '1px solid var(--border)' }}>
-                <span style={{ fontSize: '24px' }}>📄</span>
+            {uploadedList.map((doc) => (
+              <div key={doc.id} style={{ display: 'flex', alignItems: 'center', gap: '11px', padding: '11px 0', borderBottom: '1px solid var(--border)' }}>
+                <span style={{ fontSize: '24px' }}>
+                  {doc.filename.endsWith('.pdf') ? '📑' : '🖼️'}
+                </span>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 700 }}>{doc.filename}</div>
+                  <div style={{ fontWeight: 700 }}>
+                    <a href={doc.downloadURL} target="_blank" rel="noreferrer" style={{ textDecoration: 'none', color: 'inherit' }}>
+                      {doc.filename}
+                    </a>
+                  </div>
                   <div style={{ fontSize: '12px', color: 'var(--fog)' }}>Uploaded {doc.uploadedAt}</div>
+                  {doc.notes && <div style={{ fontSize: '12px', color: 'var(--slate)', marginTop: '4px', fontStyle: 'italic' }}>Note: {doc.notes}</div>}
                 </div>
-                <span style={{ background: '#fef3c7', color: '#92400e', padding: '4px 9px', borderRadius: '50px', fontSize: '12px', fontWeight: 700 }}>
-                  ⏳ {doc.status}
+                <span style={{ background: doc.status === 'Verified' ? '#dcfce7' : '#fef3c7', color: doc.status === 'Verified' ? '#166534' : '#92400e', padding: '4px 9px', borderRadius: '50px', fontSize: '12px', fontWeight: 700 }}>
+                  {doc.status === 'Verified' ? '✅' : '⏳'} {doc.status}
                 </span>
               </div>
             ))}
