@@ -19,10 +19,12 @@ The goal of this project is to make pharmacy access more convenient, transparent
 * **Order Management:** Process user orders and manage delivery routing.
 
 ## 🛠️ Tech Stack
-* **Frontend:** [e.g., React.js, Vue.js, HTML/CSS/JavaScript]
-* **Backend:** [e.g., Node.js, Express, Python/Django]
-* **Database:** [e.g., MongoDB, PostgreSQL, MySQL]
-* **Authentication:** [e.g., JWT, Firebase Auth]
+* **Frontend:** React.js, Vite, React Router, Tailwind CSS
+* **Backend/API:** Flask (Python)
+* **Database:** SQLite for app data and product listings, Firebase Firestore for prescription metadata
+* **Authentication:** Clerk for user authentication
+* **Storage:** Cloudinary for prescription/image uploads, with Firestore storing the upload references and metadata
+* **Additional Libraries:** Firebase SDK, Framer Motion, Lenis, Lucide React
 
 ## 🚀 Getting Started
 
