@@ -1,6 +1,5 @@
 import React from 'react';
 import { SignUp } from '@clerk/clerk-react';
-import { dark } from '@clerk/themes';
 
 export default function RegisterPage() {
   return (
@@ -20,7 +19,6 @@ export default function RegisterPage() {
         signInUrl="/login"
         fallbackRedirectUrl="/"
         appearance={{
-          baseTheme: dark,
           variables: {
             colorBackground: '#1c1c1f',
             colorInputBackground: '#2a2a2e',
