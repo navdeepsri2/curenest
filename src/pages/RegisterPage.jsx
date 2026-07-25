@@ -5,13 +5,16 @@ import { Link } from 'react-router-dom';
 export default function RegisterPage() {
   return (
     <div style={{
-      display: 'grid',
-      gridTemplateColumns: '1fr 1fr',
-      minHeight: '100vh',
+      position: 'fixed',
+      inset: 0,
+      display: 'flex',
       fontFamily: "'Plus Jakarta Sans', sans-serif",
+      overflow: 'hidden',
     }}>
       {/* ── LEFT PANEL ─────────────────────────────── */}
       <div style={{
+        width: '45%',
+        flexShrink: 0,
         background: 'linear-gradient(160deg, #23344e 0%, #182538 55%, #0e1521 100%)',
         padding: '44px 52px',
         display: 'flex',
@@ -80,11 +83,12 @@ export default function RegisterPage() {
 
       {/* ── RIGHT PANEL ────────────────────────────── */}
       <div style={{
-        background: 'white',
+        flex: 1,
+        background: '#f8f9fb',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        padding: '48px 40px', overflowY: 'auto',
+        padding: '40px 24px', overflowY: 'auto',
       }}>
-        <div style={{ width: '100%', maxWidth: 400 }}>
+        <div style={{ width: '100%', maxWidth: 420 }}>
           <div style={{ marginBottom: 28 }}>
             <h2 style={{ fontFamily: "'DM Serif Display', serif", fontSize: 30, color: '#2d2d2d', margin: '0 0 6px' }}>Create account</h2>
             <p style={{ fontSize: 14, color: '#555', margin: 0 }}>Join thousands of CureNest users</p>
