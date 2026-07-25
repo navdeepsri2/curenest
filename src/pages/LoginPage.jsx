@@ -1,5 +1,6 @@
 import React from 'react';
 import { SignIn } from '@clerk/clerk-react';
+import { Link } from 'react-router-dom';
 
 export default function LoginPage() {
   return (
@@ -14,6 +15,31 @@ export default function LoginPage() {
       fontFamily: "'Plus Jakarta Sans', sans-serif",
       padding: '24px',
     }}>
+      {/* Home button */}
+      <Link to="/" style={{
+        position: 'fixed',
+        top: 20,
+        left: 24,
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 7,
+        background: 'rgba(255,255,255,.08)',
+        border: '1px solid rgba(255,255,255,.12)',
+        color: 'rgba(255,255,255,.8)',
+        padding: '8px 16px',
+        borderRadius: 50,
+        fontSize: 13,
+        fontWeight: 600,
+        textDecoration: 'none',
+        backdropFilter: 'blur(8px)',
+        transition: 'background .2s',
+        zIndex: 10,
+      }}
+        onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,.14)'}
+        onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,.08)'}
+      >
+        ← Home
+      </Link>
       <SignIn
         signUpUrl="/register"
         fallbackRedirectUrl="/"
