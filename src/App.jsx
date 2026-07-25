@@ -1,5 +1,5 @@
 import React from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, useLocation } from 'react-router-dom';
 import SmoothScroll from './components/SmoothScroll';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
@@ -16,7 +16,22 @@ import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import FeaturePage from './pages/FeaturePage';
 
+// Auth pages render without Navbar/Footer so they can go full-screen
+const AUTH_ROUTES = ['/login', '/register'];
+
 export default function App() {
+  const location = useLocation();
+  const isAuthPage = AUTH_ROUTES.includes(location.pathname);
+
+  if (isAuthPage) {
+    return (
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
+      </Routes>
+    );
+  }
+
   return (
     <SmoothScroll>
       <div className="min-h-screen flex flex-col bg-[#fcfbf7] font-sans antialiased text-slate-900 selection:bg-mint selection:text-forest-900">
@@ -31,8 +46,6 @@ export default function App() {
             <Route path="/orders" element={<OrdersPage />} />
             <Route path="/tools" element={<ToolsPage />} />
             <Route path="/upload-prescription" element={<UploadPrescriptionPage />} />
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/register" element={<RegisterPage />} />
             <Route path="/feature/:featureId" element={<FeaturePage />} />
           </Routes>
         </main>
